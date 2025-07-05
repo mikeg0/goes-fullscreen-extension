@@ -2,7 +2,7 @@
 
 A Chrome extension that enhances the NOAA GOES Image Viewer website by providing fullscreen viewing capabilities for GOES satellite imagery loops. Perfect for always-on monitor displays showing real-time animated weather imagery.
 
-![GOES Fullscreen Extension Screenshot](goes-loop.gif)
+![GOES Fullscreen Extension Screenshot](GOES18-loop.gif)
 
 
 ## Project Overview
