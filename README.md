@@ -9,6 +9,8 @@ This extension is specifically designed to work with the [NOAA GOES Image Viewer
 1. **Fullscreen Toggle**: Displays the satellite image animation loop in fullscreen mode
 2. **Auto-Update**: Automatically checks for and adds new satellite images to the animation loop as they become available
 
+![GOES Fullscreen Extension Screenshot](goes-screenshot.png)
+
 ## Intended Use
 
 - **Weather Monitoring**: Display real-time satellite imagery on dedicated monitors for weather tracking
