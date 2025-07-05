@@ -1,0 +1,63 @@
+document.getElementById('fullscreenToggle').addEventListener('click', async () => {
+  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => {
+      const elem = document.getElementById('DayViewerAnimationBlock');
+
+      if (!elem) {
+        alert('Could not find DayViewerAnimationBlock');
+        return;
+        }
+
+      // Create aggressive CSS to force fullscreen
+      const style = document.createElement('style');
+      style.id = 'fullscreen-force-styles';
+      style.textContent = `
+        #DayViewerAnimationBlock {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          z-index: 99999 !important;
+          background-color: black !important;
+        }
+
+        #DayViewerAnimationBlock > div {
+          width: 100vw !important;
+          height: 100vh !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+
+        #DayViewerAnimationBlock img {
+          max-width: none !important;
+          max-height: none !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          object-fit: contain !important;
+        }
+
+        #DayViewerAnimationBlock .animCaption {
+          display: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Remove all HTML sizing attributes
+      const imgs = elem.getElementsByTagName('img');
+      for (let img of imgs) {
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+      }
+
+      // Hide page scroll
+      document.body.style.overflow = 'hidden';
+
+      // Go fullscreen
+      elem.requestFullscreen?.().catch(console.error);
+    }
+  });
+});

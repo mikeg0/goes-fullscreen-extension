@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "GOES Viewer Fullscreen Toggle",
+  "version": "1.0",
+  "description": "Adds a fullscreen toggle for the GOES Viewer animation block.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
