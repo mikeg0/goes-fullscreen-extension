@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- copyright 2025 Michael Gorham MIT License -->
+    <!-- https://www.bon5-ai.com/goes.html -->
+    <!-- post PRs, issues and feature requests at https://github.com/mikeg0/goes-fullscreen-extension -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Favicon using inline SVG for better performance -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌍</text></svg>">
+    <title>GOES Image Viewer</title>
+    <!-- Preload critical resources for better performance -->
+    <link rel="preconnect" href="https://cdn.star.nesdis.noaa.gov">
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .toggle-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .toggle-btn {
+            padding: 8px 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .toggle-btn.active {
+            background: #4CAF50;
+            border-color: #4CAF50;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .count-control {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .count-input {
+            padding: 8px 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            width: 80px;
+            text-align: center;
+        }
+
+        .count-input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+
+        .count-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            background: rgba(255,255,255,0.15);
+        }
+
+        .go-btn {
+            padding: 8px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .go-btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .go-btn:active {
+            transform: translateY(0);
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .image-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .image-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .image-container {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .image-card:hover .image-container img {
+            transform: scale(1.05);
+        }
+
+        .image-card-new {
+            outline: 2px solid chartreuse;
+        }
+
+        .image-info {
+            padding: 15px;
+        }
+
+        .image-timestamp {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .image-description {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ffcccc;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .fullscreen-image {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            object-position: top;
+        }
+
+        .main-fullscreen-btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: 2px solid #4CAF50;
+            padding: 8px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fullscreen-btn-container {
+            display: flex;
+            justify-content: center ;
+            width: 100%;
+        }
+
+        .earth-emoji {
+            font-size: 1.5rem;
+        }
+
+        .button-text {
+
+        }
+
+        .main-fullscreen-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.6), 0 4px 15px rgba(0, 0, 0, 0.2);
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+            background: linear-gradient(135deg, #45a049, #4CAF50);
+        }
+
+        .main-fullscreen-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Responsive design for mobile devices */
+        @media (max-width: 768px) {
+            .image-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .control-group {
+                width: 100%;
+            }
+
+            .toggle-buttons {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .count-control {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* HTTP warning banner for security */
+        #httpWarning {
+            display: none;
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            color: white;
+            text-align: center;
+            padding: 12px;
+            font-weight: bold;
+            font-size: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 900;
+        }
+    </style>
+</head>
+<body>
+    <!-- Security warning for HTTP connections -->
+    <div id="httpWarning">
+        ⚠️ WARNING: running locally
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>GOES Image Viewer</h1>
+            <p>Real-time satellite imagery from NOAA's Geostationary Operational Environmental Satellites</p>
+        </div>
+
+        <div class="fullscreen-btn-container">
+            <button class="main-fullscreen-btn" id="fullscreenBtn">
+                <span class="earth-emoji">🌍</span>
+                <span class="button-text">View Animated Fullscreen</span>
+            </button>
+        </div>
+        <div style="margin-bottom: 20px;" class="fullscreen-btn-container">
+            <i><small>press 'f' to enter fullscreen</small></i>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="satelliteToggle">Satellite:</label>
+                <div class="toggle-buttons" id="satelliteToggle">
+                    <button class="toggle-btn active" data-satellite="18">GOES 18</button>
+                    <button class="toggle-btn" data-satellite="19">GOES 19</button>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="modeToggle">Mode:</label>
+                <div class="toggle-buttons" id="modeToggle">
+                    <button class="toggle-btn active" data-mode="FD">Full Disk</button>
+                    <button class="toggle-btn" data-mode="CONUS">Continental US</button>
+                </div>
+            </div>
+             <div class="control-group">
+                 <label for="countInput">Count:</label>
+                 <div class="count-control">
+                     <input type="number" id="countInput" class="count-input" value="30" min="1" max="1000">
+                     <button class="go-btn" id="countGoBtn">Go</button>
+                 </div>
+             </div>
+        </div>
+
+        <div class="status" id="status">
+            Loading images automatically...
+        </div>
+
+        <div id="imageContainer">
+            <!-- Images will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Fullscreen Overlay -->
+    <div class="fullscreen-overlay" id="fullscreenOverlay">
+        <img class="fullscreen-image" id="fullscreenImage" alt="GOES Image">
+    </div>
+
+    <script>
+        /**
+         * GOES Image Viewer - Main Application Class
+         *
+         * This class manages the display of real-time satellite imagery from NOAA's GOES satellites.
+         * It handles image loading, caching, fullscreen animation, and user interactions.
+         *
+         * Key Features:
+         * - Real-time image loading from NOAA CDN
+         * - Automatic refresh every minute
+         * - Fullscreen animation mode
+         * - URL parameter support for configuration
+         * - Responsive design
+         * - Error handling and retry logic
+         */
+        class GOESImageViewer {
+            constructor() {
+                // Initialize configuration from URL parameters
+                this.satellite = this.getSatelliteFromQueryString();
+                this.maxImages = this.getMaxImagesFromQueryString();
+                this.mode = this.getModeFromQueryString();
+
+                // Set base URL and image sizes based on configuration
+                this.baseUrl = `https://cdn.star.nesdis.noaa.gov/GOES${this.satellite}/ABI/${this.mode}/GEOCOLOR/`;
+                this.imageSize = (this.mode === 'CONUS') ? '1250x750' : '1808x1808';
+                this.fullSize = (this.mode === 'CONUS') ? '2500x1500' : '5424x5424';
+
+                // Performance and state management
+                this.autoRefreshInterval = null;
+                this.loadedImages = new Set(); // Track loaded images to prevent duplicates
+                this.initialLoadComplete = false;
+                this.isLoading = false; // Prevent concurrent loading operations
+
+                // Fullscreen animation properties
+                this.fullscreenImages = [];
+                this.currentImageIndex = 0;
+                this.animationInterval = null;
+                this.isFullscreen = false;
+
+                // Emoji animation properties for UI feedback
+                this.emojiArray = ['🌎', '🌏', '🌍'];
+                this.currentEmojiIndex = 0;
+                this.emojiInterval = null;
+
+                // Performance optimization: Image cache
+                this.imageCache = new Map();
+                this.maxCacheSize = 100; // Limit cache size to prevent memory issues
+
+                // Initialize the application
+                this.initializeControls();
+                this.startAutomaticLoading();
+                this.initializeFullscreen();
+            }
+
+            /**
+             * Parse satellite selection from URL query parameters
+             * @returns {string} Satellite number (18 or 19)
+             */
+            getSatelliteFromQueryString() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const satellite = urlParams.get('satellite');
+                return satellite === '18' ? '18' : '19'; // Default to GOES-19
+            }
+
+            /**
+             * Parse maximum image count from URL query parameters
+             * @returns {number} Maximum number of images to display
+             */
+            getMaxImagesFromQueryString() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const maxImages = urlParams.get('count');
+                const parsed = maxImages ? parseInt(maxImages) : 30;
+                // Ensure reasonable bounds
+                return Math.max(1, Math.min(1000, parsed));
+            }
+
+            /**
+             * Parse viewing mode from URL query parameters
+             * @returns {string} Viewing mode (FD for Full Disk, CONUS for Continental US)
+             */
+            getModeFromQueryString() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const mode = urlParams.get('mode');
+                return mode === 'FD' ? 'FD' : 'CONUS';  // Default to CONUS
+            }
+
+            /**
+             * Initialize UI controls and event listeners
+             */
+            initializeControls() {
+                // Set initial states based on current parameters
+                this.updateToggleStates();
+                this.updateCountInput();
+
+                // Add event listeners for user interactions
+                this.addControlEventListeners();
+            }
+
+            /**
+             * Update toggle button states to reflect current configuration
+             */
+            updateToggleStates() {
+                // Update satellite toggle buttons
+                const satelliteBtns = document.querySelectorAll('[data-satellite]');
+                satelliteBtns.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.satellite === this.satellite);
+                });
+
+                // Update mode toggle buttons
+                const modeBtns = document.querySelectorAll('[data-mode]');
+                modeBtns.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mode === this.mode);
+                });
+            }
+
+            /**
+             * Update count input field to reflect current configuration
+             */
+            updateCountInput() {
+                const countInput = document.getElementById('countInput');
+                if (countInput) {
+                    countInput.value = this.maxImages;
+                }
+            }
+
+            /**
+             * Add event listeners for all user controls
+             */
+            addControlEventListeners() {
+                // Satellite toggle buttons
+                const satelliteBtns = document.querySelectorAll('[data-satellite]');
+                satelliteBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.satellite = btn.dataset.satellite;
+                        this.updateToggleStates();
+                        this.updateUrlAndRLoad();
+                    });
+                });
+
+                // Mode toggle buttons
+                const modeBtns = document.querySelectorAll('[data-mode]');
+                modeBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        this.mode = btn.dataset.mode;
+                        this.updateToggleStates();
+                        this.updateUrlAndRLoad();
+                    });
+                });
+
+                // Count input and go button
+                const countInput = document.getElementById('countInput');
+                const countGoBtn = document.getElementById('countGoBtn');
+
+                if (countInput) {
+                    // Handle Enter key in count input
+                    countInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            this.updateCountAndReload();
+                        }
+                    });
+                }
+
+                if (countGoBtn) {
+                    // Handle Go button click
+                    countGoBtn.addEventListener('click', () => {
+                        this.updateCountAndReload();
+                    });
+                }
+            }
+
+            /**
+             * Update count parameter and reload with new configuration
+             */
+            updateCountAndReload() {
+                const countInput = document.getElementById('countInput');
+                if (countInput) {
+                    const newCount = parseInt(countInput.value);
+                    if (newCount && newCount > 0 && newCount <= 1000) {
+                        this.maxImages = newCount;
+                        this.updateUrlAndRLoad();
+                    } else {
+                        alert('Please enter a valid count between 1 and 1000');
+                        countInput.value = this.maxImages;
+                    }
+                }
+            }
+
+                        /**
+             * Update URL parameters and reload page with new configuration
+             */
+            updateUrlAndRLoad() {
+                // Update URL parameters
+                const url = new URL(window.location);
+                url.searchParams.set('satellite', this.satellite);
+                url.searchParams.set('mode', this.mode);
+                url.searchParams.set('count', this.maxImages.toString());
+
+                // Actually reload the page with new parameters
+                window.location.href = url.toString();
+            }
+
+            /**
+             * Clear all cached data and reset state
+             */
+            clearData() {
+                this.loadedImages.clear();
+                this.imageCache.clear();
+                this.initialLoadComplete = false;
+                this.isLoading = false;
+
+                if (this.autoRefreshInterval) {
+                    clearInterval(this.autoRefreshInterval);
+                    this.autoRefreshInterval = null;
+                }
+            }
+
+            /**
+             * Start automatic image loading and refresh cycle
+             */
+            startAutomaticLoading() {
+                // Load initial images
+                this.loadRecentImages();
+
+                // Start timer to check for new images every minute
+                this.autoRefreshInterval = setInterval(() => {
+                    this.checkForNewImages();
+                }, 60000); // Check every minute
+            }
+
+            /**
+             * Update status display with message and optional error styling
+             * @param {string} message - Status message to display
+             * @param {boolean} isError - Whether to apply error styling
+             */
+            updateStatus(message, isError = false) {
+                const statusEl = document.getElementById('status');
+                if (statusEl) {
+                    statusEl.textContent = message;
+                    statusEl.className = isError ? 'status error' : 'status';
+                }
+                console.log(message);
+            }
+
+            /**
+             * Generate timestamp string for a given date in NOAA format
+             * @param {Date} date - Date object to convert
+             * @returns {string} Timestamp in format YYYYDDDHHMM
+             */
+            generateTimestamp(date) {
+                const year = date.getUTCFullYear();
+                // Use UTC methods to calculate day of year correctly
+                const startOfYear = new Date(Date.UTC(year, 0, 1));
+                const dayOfYear = Math.floor((date - startOfYear) / 86400000) + 1;
+                const hours = date.getUTCHours().toString().padStart(2, '0');
+                const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+
+                return `${year}${dayOfYear.toString().padStart(3, '0')}${hours}${minutes}`;
+            }
+
+            /**
+             * Generate timestamps for recent images based on server update patterns
+             * @returns {Array<string>} Array of timestamp strings
+             */
+            generateRecentTimestamps() {
+                const timestamps = [];
+                const now = new Date();
+
+                // Server update patterns: CONUS every 5 minutes, FD every 10 minutes
+                const serverMinutes = (this.mode === 'CONUS') ?
+                    [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56] :
+                    [0, 10, 20, 30, 40, 50];
+
+                // Start from 10 minutes ago to account for server lag
+                let currentTime = new Date(now.getTime() - (10 * 60 * 1000));
+
+                // Find the most recent valid minute that matches the server pattern
+                while (!serverMinutes.includes(currentTime.getUTCMinutes())) {
+                    currentTime = new Date(currentTime.getTime() - (1 * 60 * 1000));
+                }
+
+                // Generate timestamps by walking backward in appropriate intervals
+                for (let i = 0; i < this.maxImages; i++) {
+                    const timestamp = this.generateTimestamp(currentTime);
+                    timestamps.push(timestamp);
+
+                    // Move back to previous valid time based on mode
+                    const intervalMinutes = (this.mode === 'CONUS') ? 5 : 10;
+                    currentTime = new Date(currentTime.getTime() - (intervalMinutes * 60 * 1000));
+                }
+
+                return timestamps;
+            }
+
+            /**
+             * Check if an image exists at the given URL with retry logic
+             * @param {string} url - Image URL to check
+             * @param {number} retryCount - Current retry attempt
+             * @param {number} maxRetries - Maximum number of retry attempts
+             * @returns {Promise<boolean>} Whether the image exists
+             */
+            async checkImageExists(url, retryCount = 0, maxRetries = 2) {
+                // Check cache first for performance
+                if (this.imageCache.has(url)) {
+                    return this.imageCache.get(url);
+                }
+
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    let resolved = false;
+
+                    img.onload = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            this.imageCache.set(url, true);
+                            this.manageCacheSize();
+                            resolve(true);
+                        }
+                    };
+
+                    img.onerror = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            this.imageCache.set(url, false);
+                            this.manageCacheSize();
+                            console.log(`❌ Image not found: ${url}`);
+                            resolve(false);
+                        }
+                    };
+
+                    // Don't use crossOrigin since CORS isn't working
+                    img.src = url;
+
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        if (!resolved) {
+                            resolved = true;
+                            console.log(`⏰ Image check timeout: ${url} (attempt ${retryCount + 1})`);
+
+                            // Retry logic
+                            if (retryCount < maxRetries) {
+                                console.log(`🔄 Retrying image check: ${url} (attempt ${retryCount + 2})`);
+                                setTimeout(() => {
+                                    this.checkImageExists(url, retryCount + 1, maxRetries).then(resolve);
+                                }, 2000); // Wait 2 seconds before retry
+                            } else {
+                                console.log(`❌ Image check failed after ${maxRetries + 1} attempts: ${url}`);
+                                this.imageCache.set(url, false);
+                                this.manageCacheSize();
+                                resolve(false);
+                            }
+                        }
+                    }, 10000);
+                });
+            }
+
+            /**
+             * Manage cache size to prevent memory issues
+             */
+            manageCacheSize() {
+                if (this.imageCache.size > this.maxCacheSize) {
+                    // Remove oldest entries
+                    const entries = Array.from(this.imageCache.entries());
+                    const toRemove = entries.slice(0, this.imageCache.size - this.maxCacheSize);
+                    toRemove.forEach(([key]) => this.imageCache.delete(key));
+                }
+            }
+
+            /**
+             * Format timestamp for human-readable display
+             * @param {string} timestamp - Timestamp in YYYYDDDHHMM format
+             * @returns {string} Formatted date string
+             */
+            formatTimestampForDisplay(timestamp) {
+                const year = timestamp.slice(0, 4);
+                const dayOfYear = parseInt(timestamp.slice(4, 7));
+                const hours = timestamp.slice(7, 9);
+                const minutes = timestamp.slice(9, 11);
+
+                const date = new Date(year, 0, dayOfYear);
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+
+                return `${day} ${date.toLocaleString('en', { month: 'short' })} ${year} - ${hours}:${minutes} UTC`;
+            }
+
+            /**
+             * Create image card element for display
+             * @param {string} timestamp - Image timestamp
+             * @param {string} imageUrl - Thumbnail image URL
+             * @param {string} fullSizeUrl - Full-size image URL
+             * @returns {HTMLElement} Image card element
+             */
+            createImageCard(timestamp, imageUrl, fullSizeUrl) {
+                const displayTime = this.formatTimestampForDisplay(timestamp);
+
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.innerHTML = `
+                    <div class="image-container">
+                        <img src="${imageUrl}"
+                             alt="GOES-${this.satellite} GeoColor - ${displayTime}"
+                             title="GOES-${this.satellite} GeoColor - ${displayTime}"
+                             loading="lazy"
+                             onerror="this.style.display='none'"
+                             style="max-width: 100%; height: auto;">
+                    </div>
+                    <div class="image-info">
+                        <div class="image-timestamp">${displayTime}</div>
+                    </div>
+                `;
+
+                // Add click handler to open full size image
+                card.addEventListener('click', () => {
+                    window.open(fullSizeUrl, '_blank');
+                });
+
+                return card;
+            }
+
+            /**
+             * Load recent images in batches for better performance
+             */
+            async loadRecentImages() {
+                if (this.isLoading) {
+                    console.log('Loading already in progress, skipping...');
+                    return;
+                }
+
+                this.isLoading = true;
+                this.updateStatus('Loading recent images...');
+
+                const container = document.getElementById('imageContainer');
+                container.innerHTML = '<div class="loading"><span class="spinner"></span>Checking for available images...</div>';
+
+                const timestamps = this.generateRecentTimestamps();
+                const foundImages = [];
+                let checkedCount = 0;
+                const batchSize = 10; // Process in batches to prevent overwhelming the server
+
+                try {
+                    // Process timestamps in batches
+                    for (let i = 0; i < timestamps.length; i += batchSize) {
+                        const batch = timestamps.slice(i, i + batchSize);
+
+                        this.updateStatus(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(timestamps.length / batchSize)}... (${checkedCount}/${timestamps.length} checked)`);
+
+                        // Process each batch with concurrency limit
+                        const concurrencyLimit = 5;
+                        const chunks = [];
+                        for (let j = 0; j < batch.length; j += concurrencyLimit) {
+                            chunks.push(batch.slice(j, j + concurrencyLimit));
+                        }
+
+                        for (const chunk of chunks) {
+                            const promises = chunk.map(async (timestamp) => {
+                                const imageUrl = `${this.baseUrl}${timestamp}_GOES${this.satellite}-ABI-${this.mode}-GEOCOLOR-${this.imageSize}.jpg`;
+                                const fullSizeUrl = `${this.baseUrl}${timestamp}_GOES${this.satellite}-ABI-${this.mode}-GEOCOLOR-${this.fullSize}.jpg`;
+
+                                const exists = await this.checkImageExists(imageUrl);
+                                checkedCount++;
+
+                                this.updateStatus(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(timestamps.length / batchSize)}... (${checkedCount}/${timestamps.length} checked)`);
+
+                                if (exists && !this.loadedImages.has(timestamp)) {
+                                    this.loadedImages.add(timestamp);
+                                    return { timestamp, imageUrl, fullSizeUrl };
+                                }
+                                return null;
+                            });
+
+                            const results = await Promise.all(promises);
+                            const validResults = results.filter(result => result !== null);
+                            foundImages.push(...validResults);
+
+                            // Stop if we have enough images
+                            if (foundImages.length >= this.maxImages) {
+                                break;
+                            }
+                        }
+
+                        // Stop if we have enough images
+                        if (foundImages.length >= this.maxImages) {
+                            break;
+                        }
+
+                        // Small delay between batches to prevent overwhelming the server
+                        if (i + batchSize < timestamps.length) {
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                    }
+
+                    // Sort by timestamp (newest last)
+                    foundImages.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+                    // Display images
+                    this.displayImages(foundImages.slice(0, this.maxImages));
+                } catch (error) {
+                    console.error('Error loading images:', error);
+                    this.updateStatus('Error loading images. Please try again.', true);
+                } finally {
+                    this.isLoading = false;
+                }
+            }
+
+            /**
+             * Display images in the container
+             * @param {Array} images - Array of image objects with timestamp, imageUrl, and fullSizeUrl
+             */
+            displayImages(images) {
+                const container = document.getElementById('imageContainer');
+
+                if (images.length === 0) {
+                    container.innerHTML = '<div class="error">No recent images found. Please try again later.</div>';
+                    this.updateStatus('No images found');
+                    return;
+                }
+
+                container.innerHTML = '';
+
+                images.forEach(({ timestamp, imageUrl, fullSizeUrl }) => {
+                    const card = this.createImageCard(timestamp, imageUrl, fullSizeUrl);
+                    container.appendChild(card);
+                });
+
+                this.updateStatus(`Loaded ${images.length} recent images`);
+                this.initialLoadComplete = true;
+            }
+
+            /**
+             * Check for new images - only check the most recent timestamps
+             */
+            async checkForNewImages() {
+                if (this.isLoading) {
+                    console.log('Loading in progress, skipping new image check...');
+                    return;
+                }
+
+                this.updateStatus('Checking for new images...');
+
+                const timestamps = this.generateRecentTimestamps();
+                const newImages = [];
+
+                // Only check the most recent 2 timestamps that aren't already loaded
+                const timestampsToCheck = [];
+                for (const timestamp of timestamps) {
+                    if (!this.loadedImages.has(timestamp)) {
+                        timestampsToCheck.push(timestamp);
+                        if (timestampsToCheck.length >= 2) {
+                            break;
+                        }
+                    }
+                }
+
+                if (timestampsToCheck.length === 0) {
+                    this.updateStatus('No new timestamps to check.');
+                    return;
+                }
+
+                this.updateStatus(`Checking ${timestampsToCheck.length} recent timestamp${timestampsToCheck.length === 1 ? '' : 's'} for new images...`);
+
+                try {
+                    // Check each timestamp concurrently
+                    const promises = timestampsToCheck.map(async (timestamp) => {
+                        const imageUrl = `${this.baseUrl}${timestamp}_GOES${this.satellite}-ABI-${this.mode}-GEOCOLOR-${this.imageSize}.jpg`;
+                        const fullSizeUrl = `${this.baseUrl}${timestamp}_GOES${this.satellite}-ABI-${this.mode}-GEOCOLOR-${this.fullSize}.jpg`;
+
+                        const exists = await this.checkImageExists(imageUrl);
+
+                        if (exists && !this.loadedImages.has(timestamp)) {
+                            this.loadedImages.add(timestamp);
+                            return { timestamp, imageUrl, fullSizeUrl };
+                        }
+                        return null;
+                    });
+
+                    const results = await Promise.all(promises);
+                    const validResults = results.filter(result => result !== null);
+                    newImages.push(...validResults);
+
+                    if (newImages.length > 0) {
+                        // Sort by timestamp (newest last)
+                        newImages.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+                        // Append new images to the container
+                        this.appendNewImages(newImages);
+
+                        // If in fullscreen animation, add new images to the animation loop
+                        if (this.isFullscreen) {
+                            this.addImagesToAnimation(newImages);
+                        }
+
+                        this.updateStatus(`Found ${newImages.length} new image${newImages.length === 1 ? '' : 's'}.`);
+                    } else {
+                        this.updateStatus('No new image found.');
+                    }
+                } catch (error) {
+                    console.error('Error checking for new images:', error);
+                    this.updateStatus('Error checking for new images.', true);
+                }
+            }
+
+            /**
+             * Append new images to the existing container
+             * @param {Array} newImages - Array of new image objects
+             */
+            appendNewImages(newImages) {
+                const container = document.getElementById('imageContainer');
+
+                newImages.forEach(({ timestamp, imageUrl, fullSizeUrl }) => {
+                    const card = this.createImageCard(timestamp, imageUrl, fullSizeUrl);
+
+                    // Add the new class if initial load is complete
+                    if (this.initialLoadComplete) {
+                        card.classList.add('image-card-new');
+                    }
+
+                    container.appendChild(card);
+                });
+            }
+
+            /**
+             * Initialize fullscreen functionality and keyboard shortcuts
+             */
+            initializeFullscreen() {
+                const fullscreenBtn = document.getElementById('fullscreenBtn');
+                const overlay = document.getElementById('fullscreenOverlay');
+
+                fullscreenBtn.addEventListener('click', () => this.startFullscreenAnimation());
+
+                // Handle keyboard events for fullscreen
+                document.addEventListener('keydown', (e) => {
+                    // Enter fullscreen mode when 'f' key is pressed
+                    if (e.key.toLowerCase() === 'f' && !this.isFullscreen) {
+                        e.preventDefault();
+                        this.startFullscreenAnimation();
+                    }
+                    // Exit fullscreen on escape key
+                    else if (e.key === 'Escape' && this.isFullscreen) {
+                        this.exitFullscreen();
+                    }
+                });
+
+                // Handle fullscreen change events
+                document.addEventListener('fullscreenchange', () => {
+                    if (!document.fullscreenElement && this.isFullscreen) {
+                        this.exitFullscreen();
+                    }
+                });
+
+                // Start emoji animation for visual feedback
+                this.startEmojiAnimation();
+            }
+
+            /**
+             * Start emoji animation for the fullscreen button
+             */
+            startEmojiAnimation() {
+                const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+                this.emojiInterval = setInterval(() => {
+                    this.currentEmojiIndex = (this.currentEmojiIndex + 1) % this.emojiArray.length;
+                    const earthEmoji = fullscreenBtn.querySelector('.earth-emoji');
+                    if (earthEmoji) {
+                        earthEmoji.textContent = this.emojiArray[this.currentEmojiIndex];
+                    }
+                }, 500);
+            }
+
+            /**
+             * Start fullscreen animation mode
+             */
+            async startFullscreenAnimation() {
+                // Get all current images from the container
+                const imageCards = document.querySelectorAll('.image-card img');
+                if (imageCards.length === 0) {
+                    alert('No images available for animation');
+                    return;
+                }
+
+                // Build array of image data
+                this.fullscreenImages = [];
+                imageCards.forEach((img, index) => {
+                    this.fullscreenImages.push({
+                        src: img.src,
+                        index: index
+                    });
+                });
+
+                if (this.fullscreenImages.length === 0) {
+                    alert('No images available for animation');
+                    return;
+                }
+
+                // Show fullscreen overlay
+                const overlay = document.getElementById('fullscreenOverlay');
+                overlay.style.display = 'flex';
+                this.isFullscreen = true;
+                this.currentImageIndex = 0;
+
+                // Pause emoji animation during fullscreen
+                if (this.emojiInterval) {
+                    clearInterval(this.emojiInterval);
+                    this.emojiInterval = null;
+                }
+
+                // Request browser fullscreen
+                try {
+                    await overlay.requestFullscreen();
+                } catch (err) {
+                    console.log('Fullscreen request failed:', err);
+                    // Continue with overlay fullscreen if browser fullscreen fails
+                }
+
+                // Start animation
+                this.showNextImage();
+            }
+
+            /**
+             * Show next image in the fullscreen animation sequence
+             */
+            showNextImage() {
+                if (!this.isFullscreen || this.fullscreenImages.length === 0) return;
+
+                const imageData = this.fullscreenImages[this.currentImageIndex];
+                const fullscreenImage = document.getElementById('fullscreenImage');
+
+                // Update image
+                fullscreenImage.src = imageData.src;
+
+                // Calculate delay - 2 seconds for last image, 200ms for others
+                const isLastImage = this.currentImageIndex === this.fullscreenImages.length - 1;
+                const delay = isLastImage ? 2000 : 50;
+
+                // Schedule next image
+                this.animationInterval = setTimeout(() => {
+                    this.currentImageIndex = (this.currentImageIndex + 1) % this.fullscreenImages.length;
+                    this.showNextImage();
+                }, delay);
+            }
+
+            /**
+             * Add new images to the fullscreen animation loop
+             * @param {Array} newImages - Array of new image objects
+             */
+            addImagesToAnimation(newImages) {
+                if (!this.isFullscreen || newImages.length === 0) return;
+
+                // Add new images to the animation array
+                newImages.forEach(({ imageUrl }) => {
+                    this.fullscreenImages.push({
+                        src: imageUrl,
+                        index: this.fullscreenImages.length
+                    });
+                });
+
+                console.log(`Added ${newImages.length} new image(s) to animation. Total images: ${this.fullscreenImages.length}`);
+            }
+
+            /**
+             * Exit fullscreen animation mode
+             */
+            exitFullscreen() {
+                if (this.animationInterval) {
+                    clearTimeout(this.animationInterval);
+                    this.animationInterval = null;
+                }
+
+                // Exit browser fullscreen if active
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+
+                const overlay = document.getElementById('fullscreenOverlay');
+                overlay.style.display = 'none';
+                this.isFullscreen = false;
+                this.currentImageIndex = 0;
+
+                // Restart emoji animation
+                this.startEmojiAnimation();
+            }
+        }
+
+        // Initialize the viewer when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if page is running over HTTP and show warning banner
+            if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost') {
+                document.getElementById('httpWarning').style.display = 'block';
+            }
+
+            // Create and initialize the viewer
+            const viewer = new GOESImageViewer();
+        });
+    </script>
+</body>
+</html>

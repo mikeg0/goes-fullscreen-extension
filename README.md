@@ -1,11 +1,27 @@
 # GOES Fullscreen Extension
 
+
+## <span style="color: red;">Depreciation Notice:</span>
+
+### See https://www.bon5-ai.com/goes.html -- a simple HTML page that uses the NOAA API to get the GOES images and animates them in fullscreen mode.
+
+I ran into issues getting access to jQuery from the NOAA website, so I decided to stop working on this extension and access the GOES images directly from the NOAA website.
+
+I'm leaving the code here for reference, but I'm probably not going to be updating it.
+
+I included the code for my new webpage that views and animates the GOES images.  (see goes.html)  I like this way better than the extension because it's simpler, very streamlined and doesn't require a browser specific extension.  I will accept PRs and look into issues for the webpage as time permits.
+
+
+
+
+## Project Overview
+
 A Chrome extension that enhances the NOAA GOES Image Viewer website by providing fullscreen viewing capabilities for GOES satellite imagery loops. Perfect for always-on monitor displays showing real-time animated weather imagery.
 
 ![GOES Fullscreen Extension Screenshot](GOES18-loop.gif)
 
 
-## Project Overview
+## Introduction
 
 This extension is specifically designed to work with the [NOAA GOES Image Viewer](https://www.star.nesdis.noaa.gov/GOES/) website, which displays near real-time satellite imagery from the Geostationary Operational Environmental Satellites (GOES). The extension provides two main functionalities:
 
@@ -110,7 +126,7 @@ The extension generates timestamps in the format: `YYYYDDDHHMM` where:
 
 ## Contributing
 
-This project is open source under the GPL v3.0 license. Contributions are welcome for:
+This project is open source under the MIT license. Contributions are welcome for:
 - Bug fixes and improvements
 - Additional satellite data sources
 - Enhanced UI/UX
@@ -126,4 +142,4 @@ For issues or questions:
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See the `LICENSE` file for full license terms. This ensures the software remains free and open source with strong copyleft protections.
+This project is licensed under the MIT License.
